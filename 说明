@@ -1,0 +1,128 @@
+简化版区块链加密货币（基于 Python），包含核心功能：区块结构、工作量证明（PoW）、交易记录、挖矿奖励等，帮助你理解加密货币的底层逻辑（非生产级，仅用于学习）。
+
+核心原理说明
+加密货币的核心是 区块链（链式存储的加密区块），每个区块包含：
+区块头：版本、前区块哈希、梅克尔根、时间戳、难度值、随机数
+区块体：交易记录（转账、挖矿奖励等）
+共识机制：这里用 工作量证明（PoW）（类似比特币），通过计算满足难度的哈希值确认区块有效性
+
+1. 挖矿（获取代币奖励）
+请求：GET http://localhost:5000/mine
+响应：返回新挖出的区块信息，包含 1 个代币奖励（发送者为 "0"）
+2. 创建转账交易
+请求：POST http://localhost:5000/transactions/new
+请求体（JSON）：
+json
+{
+  "sender": "你的节点ID（挖矿返回的recipient）",
+  "recipient": "目标节点ID（可新建另一个节点）",
+  "amount": 0.5
+}
+响应：提示交易将被打包到下一个区块
+
+3. 查看区块链
+请求：GET http://localhost:5000/chain
+响应：返回完整区块链，包含所有区块和交易记录
+4. 模拟去中心化网络
+启动多个节点（修改端口，如 5001、5002）
+注册节点：POST http://localhost:5000/nodes/register
+json
+{
+  "nodes": ["localhost:5001", "localhost:5002"]
+}
+共识同步：GET http://localhost:5000/nodes/resolve（自动同步最长有效链）
+
+关键特性说明
+密码学安全：使用 SHA-256 哈希函数保证区块不可篡改（修改任一区块会导致后续所有哈希失效）。
+工作量证明：通过 "找前 4 位为 0 的哈希" 模拟挖矿难度，可调整valid_proof中的位数（如前 6 位）提高难度。
+去中心化：支持多节点注册和共识机制，通过最长有效链规则解决节点数据不一致。
+交易机制：记录转账信息，挖矿奖励由系统生成（发送者为 "0"）。
+
+生产级加密货币的缺失特性
+P2P 网络：当前用 Flask 模拟节点，需实现真正的 P2P 网络（如使用 libp2p）。
+钱包系统：私钥 / 公钥加密（如 ECDSA），当前节点 ID 仅为 UUID，无真实加密签名。
+UTXO 模型：未实现 "未花费交易输出"，需跟踪每个地址的可用余额。
+智能合约：如以太坊的 Solidity，当前仅支持简单转账。
+抗攻击机制：防双花、51% 攻击等（需更复杂的共识机制，如 PoS 权益证明）。
+
+
+项目部署指南
+
+该项目基于 Python + Flask 开发，部署核心是 搭建 Python 运行环境、暴露服务端口、配置多节点网络（模拟去中心化）。以下提供 本地测试部署、服务器单机部署、多节点分布式部署 三种方案，从简单到复杂逐步说明。
+一、前置准备
+1. 环境依赖
+运行环境：Python 3.7+（推荐 3.9/3.10，兼容性更好）
+依赖包：flask（Web 服务）、requests（节点间通信）
+服务器要求（线上部署）：
+操作系统：Linux（Ubuntu 20.04+/CentOS 7+，推荐）、Windows Server
+端口开放：需开放 Flask 服务端口（如 5000、5001），确保节点间能互相访问
+权限：具备 Python 环境安装权限、端口占用查询权限
+
+1. 安装依赖
+打开终端（Windows 用 CMD/PowerShell，Mac/Linux 用 Terminal），执行以下命令：
+bash
+运行
+# （可选）创建虚拟环境，避免依赖冲突
+python -m venv blockchain-env
+# 激活虚拟环境
+# Windows：
+blockchain-env\Scripts\activate
+# Mac/Linux：
+source blockchain-env/bin/activate
+
+# 安装依赖包
+pip install flask requests
+2. 运行服务
+bash
+运行
+# 执行代码（默认端口5000）
+python blockchain_crypto.py
+3. 验证部署
+打开浏览器或 Postman，访问以下地址，返回结果即部署成功：
+查看区块链：http://localhost:5000/chain
+挖矿：http://localhost:5000/mine
+4. 启动多节点（模拟去中心化）
+本地可启动多个节点（不同端口），步骤：
+新开一个终端，激活虚拟环境
+执行命令（指定端口 5001）：
+bash
+运行
+# Windows：
+set FLASK_APP=blockchain_crypto.py
+set FLASK_RUN_PORT=5001
+python blockchain_crypto.py
+
+# Mac/Linux：
+export FLASK_APP=blockchain_crypto.py
+export FLASK_RUN_PORT=5001
+python blockchain_crypto.py
+重复步骤，可启动 5002、5003 等多个节点
+通过 /nodes/register 接口注册节点，实现多节点通信
+
+加密货币的核心是去中心化，需在 多个服务器 / 节点 上部署服务，实现节点间同步和共识。
+1. 准备多个节点
+至少 2 台服务器（或本地多个端口），按「方案 2」完成单机部署（每个节点端口可相同，如 5000，也可不同）
+记录每个节点的访问地址（如 http://节点1IP:5000、http://节点2IP:5000）
+2. 节点注册（建立网络连接）
+通过 /nodes/register 接口将所有节点互相注册，让节点知道网络中的其他节点：
+（1）用 Postman 发送 POST 请求
+地址：http://节点1IP:5000/nodes/register
+请求体（JSON）：
+json
+{
+  "nodes": ["节点2IP:5000", "节点3IP:5000"]  // 填写其他所有节点的地址
+}
+响应：提示「新节点已注册」，返回所有已注册节点。
+（2）重复注册
+对每个节点执行上述操作，确保所有节点都注册了其他节点（形成网状网络）。
+3. 测试共识机制
+（1）在节点 2 上挖矿（产生新区块）
+访问 http://节点2IP:5000/mine，挖出 1 个新区块（链长变为 2）。
+（2）在节点 1 上执行共识同步
+访问 http://节点1IP:5000/nodes/resolve，节点 1 会检测到节点 2 的链更长，自动同步为节点 2 的链。
+（3）验证同步结果
+访问 http://节点1IP:5000/chain，查看链长是否更新为 2，确认共识机制生效。
+4. 多节点交易测试
+在节点 1 上创建交易（POST /transactions/new），指定接收者为节点 2 的 ID。
+在节点 1 上挖矿（GET /mine），将交易打包到新区块。
+在节点 2 上执行共识同步（GET /nodes/resolve），查看是否同步到该交易。
