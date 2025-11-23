@@ -52,15 +52,20 @@ class Blockchain:
 
         # 遍历所有邻居节点，获取其区块链并验证
         for node in neighbors:
-            response = request.get(f'http://{node}/chain')
-            if response.status_code == 200:
-                length = response.json['length']
-                chain = response.json['chain']
+            try:
+                response = request.get(f'http://{node}/chain', timeout=5)
+                if response.status_code == 200:
+                    length = response.json['length']
+                    chain = response.json['chain']
 
-                # 如果对方链更长且有效，则更新本地链
-                if length > max_length and self.valid_chain(chain):
-                    max_length = length
-                    new_chain = chain
+                    # 如果对方链更长且有效，则更新本地链
+                    if length > max_length and self.valid_chain(chain):
+                        max_length = length
+                        new_chain = chain
+            except Exception as e:
+                print(f"节点 {node} 通信失败: {str(e)}")
+                # 忽略失败的节点，继续尝试其他节点
+                continue
 
         # 如果找到更长的有效链，则替换本地链
         if new_chain:
@@ -103,6 +108,9 @@ class Blockchain:
     # 获取最后一个区块
     @property
     def last_block(self):
+        if not self.chain:
+            # 如果链为空，抛出适当的异常
+            raise ValueError("区块链为空，无法获取最后一个区块")
         return self.chain[-1]
 
     # 工作量证明（PoW）：找到一个数字p'，使得hash(pp')前n位为0
